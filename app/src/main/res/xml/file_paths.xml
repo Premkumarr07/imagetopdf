@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Place this file at:
+    res/xml/file_paths.xml
+
+    Then register the FileProvider in AndroidManifest.xml inside <application>:
+
+    <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.provider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/file_paths" />
+    </provider>
+
+    Also add this permission to AndroidManifest.xml (above <application>)
+    for Android 9 and below:
+
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+-->
+<paths>
+    <!-- App cache dir — used for temporary PDF before copying to Downloads -->
+    <cache-path name="cached_pdfs" path="." />
+
+    <!-- External Downloads — used on Android 9 and below -->
+        <external-path name="downloads" path="Download/" />
+    <external-files-path name="app_files" path="." />
+</paths>
