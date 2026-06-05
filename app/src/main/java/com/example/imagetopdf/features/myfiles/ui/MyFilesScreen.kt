@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.imagetopdf.R
 import com.example.imagetopdf.constants.AppColors
@@ -51,7 +51,7 @@ enum class SortMode(val label: String) {
 @Composable
 fun MyFilesScreen(
     navController: NavController,
-    viewModel: MyFilesViewModel = viewModel()
+    viewModel: MyFilesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
 
@@ -157,7 +157,7 @@ private fun StorageInfoCard(fileCount: Int) {
                     Text("Documents / ImageToPDF", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     Text("$fileCount PDF file${if (fileCount != 1) "s" else ""}", fontSize = 12.sp, color = Color.White.copy(alpha = .75f))
                 }
-                Icon(Icons.Outlined.KeyboardArrowRight, null, tint = Color.White.copy(alpha = .6f), modifier = Modifier.size(20.dp))
+//                Icon(Icons.Outlined.KeyboardArrowRight, null, tint = Color.White.copy(alpha = .6f), modifier = Modifier.size(20.dp))
             }
         }
     }

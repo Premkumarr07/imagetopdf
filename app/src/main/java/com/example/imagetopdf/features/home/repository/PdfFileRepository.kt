@@ -1,3 +1,4 @@
+package com.example.imagetopdf.features.home.repository
 
 import android.content.ContentValues
 import android.content.Context
@@ -55,7 +56,8 @@ class PdfFileRepository @Inject constructor(
                     path = file.absolutePath,
                     sizeLabel = formatSize(file.length()),
                     dateLabel = dateFormat.format(Date(file.lastModified())),
-                    uri = getFileUri(file)
+                    lastModified = file.lastModified(),
+                    sizeBytes = file.length()
                 )
             }
             ?: emptyList()
@@ -119,6 +121,43 @@ class PdfFileRepository @Inject constructor(
                 FileOutputStream(file).use { it.write(pdfBytes) }
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun importPdfFromUri(uri: Uri): File? = withContext(Dispatchers.IO) {
+        try {
+            val resolver = context.contentResolver
+
+            val fileName = try {
+                resolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (cursor.moveToFirst() && nameIndex >= 0) {
+                        cursor.getString(nameIndex)
+                    } else {
+                        "Imported_${System.currentTimeMillis()}.pdf"
+                    }
+                } ?: "Imported_${System.currentTimeMillis()}.pdf"
+            } catch (e: Exception) {
+                "Imported_${System.currentTimeMillis()}.pdf"
+            }
+
+            val cleanName = fileName.removeSuffix(".pdf")
+
+            val inputStream = resolver.openInputStream(uri)
+                ?: return@withContext null
+
+            val file = createPdfFile(cleanName)
+
+            inputStream.use { input ->
+                FileOutputStream(file).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            file
         } catch (e: Exception) {
             e.printStackTrace()
             null

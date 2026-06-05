@@ -7,5 +7,7 @@ data class PdfFileModel(
     val path: String,
     val sizeLabel: String,
     val dateLabel: String,
+    val lastModified: Long,
+    val sizeBytes: Long,
     val uri: Uri? = null
 )

@@ -1,9 +1,9 @@
 package com.example.imagetopdf.features.home.viewmodel
 
-import PdfFileRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.imagetopdf.features.home.model.PdfFileModel
+import com.example.imagetopdf.features.home.repository.PdfFileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +17,7 @@ data class HomeUiState(
     val isLoading: Boolean = false,
     val error: String? = null
 )
-
+@HiltViewModel
 class HomeViewModel @Inject constructor(
     private val pdfFileRepository: PdfFileRepository
 ) : ViewModel() {
