@@ -151,7 +151,7 @@ suspend fun convertImagesToPdf(
         return@withContext com.example.imagetopdf.core.utils.PdfSaveHelper.savePdfBytes(context, bytes, pdfName)
 
     } catch (e: Exception) {
-        e.printStackTrace()
+        com.example.imagetopdf.core.logging.AppLogger.e(e)
         return@withContext null
     } finally {
         pdfDocument.close()
@@ -348,9 +348,23 @@ fun ImageToPdfScreen(navController: NavController) {
 
                     ConvertState.DONE -> ConversionSuccess(
                         pdfName    = pdfName.ifBlank { "document" },
-                        onDownload = {
+                        onOpen = {
                             savedPdfPath?.let { path ->
                                 navController.navigate(NavigationRoutes.PdfViewer.open(path))
+                            }
+                        },
+                        onSaveToDownloads = {
+                            savedPdfPath?.let { path ->
+                                val ok = com.example.imagetopdf.core.utils.PdfSaveHelper.exportToDownloads(
+                                    context,
+                                    java.io.File(path),
+                                    pdfName.ifBlank { "document" }
+                                )
+                                android.widget.Toast.makeText(
+                                    context,
+                                    if (ok) "Saved to Downloads/PDFMaker" else "Could not save to Downloads",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
                         },
                         onShare = {

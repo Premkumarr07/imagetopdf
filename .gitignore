@@ -37,4 +37,5 @@ local.properties
 # Secrets
 *.keystore
 *.jks
+keystore.properties
 google-services.json

@@ -39,7 +39,7 @@ See what you’ve created, search and sort, import a PDF you already have, or st
 
 ## Getting started
 
-Install the app on your Android phone. The first time you open it, you’ll sign in with email and password (stored on your device). After that you land on the home screen with quick actions and your recent PDFs.
+Install the app on your Android phone. The first time you open it, you can set a **local passcode** (stored encrypted on your device) or continue without one. After that you land on the home screen with quick actions and your recent PDFs.
 
 The app may ask to use your camera when you scan documents. That’s only for scanning — not for anything else in the background.
 
@@ -53,14 +53,26 @@ The app may ask to use your camera when you scan documents. That’s only for sc
 
 ## Privacy
 
-ImageToPDF is built for personal use. Don’t put sensitive information in the app unless you’re comfortable keeping it on your device. Use share and save the way you would with any file on your phone.
+See [PRIVACY.md](PRIVACY.md) for the full policy (on-device storage, permissions, no cloud document hosting).
 
 ## Build from source
 
 1. Install [Android Studio](https://developer.android.com/studio) (or the Android SDK) and JDK 17.
 2. Copy `local.properties.example` to `local.properties` and set `sdk.dir` to your SDK path.
-3. From the project root: `./gradlew assembleDebug`
-4. Install the debug APK from `app/build/outputs/apk/debug/` on a device, or run from Android Studio.
+3. Debug build: `./gradlew assembleDebug` → APK under `app/build/outputs/apk/debug/`.
+4. Run unit tests: `./gradlew testDebugUnitTest`.
+
+## Release build (Play Store / production)
+
+1. Create an upload keystore (once):  
+   `keytool -genkey -v -keystore release.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000`
+2. Copy `keystore.properties.example` → `keystore.properties` and fill in paths/passwords (never commit this file).
+3. Build: `./gradlew bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`
+4. Update `versionCode` / `versionName` in `app/build.gradle.kts` before each store upload.
+5. Set your support email in `app/src/main/res/values/strings.xml` (`support_email`).
+6. Point your Play Console privacy policy URL to `PRIVACY.md` on GitHub (or host the same text on your site).
+
+CI runs `assembleDebug`, `lintDebug`, and unit tests on push/PR via `.github/workflows/android.yml`.
 
 ## License
 

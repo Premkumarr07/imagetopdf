@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import com.example.imagetopdf.features.image_to_pdf.domain.ConvertResult
 import com.example.imagetopdf.features.image_to_pdf.domain.ImageProcessor
@@ -45,7 +46,7 @@ class ImageRepositoryImpl @Inject constructor(
             ConvertResult.Success(savedUri, settings.fileName)
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             ConvertResult.Error(e.message ?: "Conversion failed")
         }
     }
@@ -61,6 +62,7 @@ class ImageRepositoryImpl @Inject constructor(
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveUsingMediaStore(cacheFile: File, fileName: String): Uri? {
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, "$fileName.pdf")

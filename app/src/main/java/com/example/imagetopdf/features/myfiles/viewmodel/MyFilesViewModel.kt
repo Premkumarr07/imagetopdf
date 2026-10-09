@@ -84,7 +84,7 @@ class MyFilesViewModel @Inject constructor(
                 loadFiles()
 
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.example.imagetopdf.core.logging.AppLogger.e(e)
             }
         }
     }

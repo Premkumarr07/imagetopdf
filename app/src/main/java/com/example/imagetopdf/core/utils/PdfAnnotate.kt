@@ -73,7 +73,7 @@ object PdfAnnotate {
             FileOutputStream(outputFile).use { document.writeTo(it) }
             return outputFile
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             return inputFile
         } finally {
             document.close()
@@ -123,7 +123,7 @@ object PdfAnnotate {
             FileOutputStream(outputFile).use { document.writeTo(it) }
             return outputFile
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             return inputFile
         } finally {
             document.close()

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.imagetopdf.BuildConfig
+import com.example.imagetopdf.R
 import com.example.imagetopdf.MainActivity
 import com.example.imagetopdf.constants.AppColors
 import com.example.imagetopdf.core.preferences.DefaultPdfQuality
@@ -276,13 +277,30 @@ fun ProfileScreen(
                     onClick = {
                         val mail = Intent(Intent.ACTION_SENDTO).apply {
                             data = Uri.parse("mailto:")
-                            putExtra(Intent.EXTRA_EMAIL, arrayOf("support@example.com"))
+                            putExtra(Intent.EXTRA_EMAIL, arrayOf(context.getString(R.string.support_email)))
                             putExtra(Intent.EXTRA_SUBJECT, "ImageToPDF feedback")
                         }
                         try {
                             context.startActivity(mail)
                         } catch (_: Exception) {
                             Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "Privacy policy",
+                    subtitle = "How we handle your data",
+                    icon = Icons.Outlined.Policy,
+                    iconTint = Color(0xFF64748B),
+                    iconBg = Color(0xFFF1F5F9),
+                    onClick = {
+                        val url = context.getString(R.string.privacy_policy_url)
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
                         }
                     }
                 )

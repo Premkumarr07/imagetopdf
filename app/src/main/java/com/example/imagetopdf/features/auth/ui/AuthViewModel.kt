@@ -58,11 +58,11 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun loginWithGoogle(onSuccess: (String) -> Unit) {
+    fun continueAsGuest(onSuccess: (String) -> Unit) {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
-            kotlinx.coroutines.delay(800)
-            val email = _uiState.value.email.ifBlank { "user@gmail.com" }
+            kotlinx.coroutines.delay(300)
+            val email = _uiState.value.email.trim().ifBlank { "guest@device.local" }
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 isLoggedIn = true,

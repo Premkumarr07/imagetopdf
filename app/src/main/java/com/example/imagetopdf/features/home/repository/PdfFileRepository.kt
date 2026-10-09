@@ -123,7 +123,7 @@ class PdfFileRepository @Inject constructor(
                 FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             null
         }
     }
@@ -160,7 +160,7 @@ class PdfFileRepository @Inject constructor(
 
             file
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             null
         }
     }

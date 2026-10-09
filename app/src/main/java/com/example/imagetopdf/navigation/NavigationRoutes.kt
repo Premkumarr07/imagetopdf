@@ -1,8 +1,24 @@
 package com.example.imagetopdf.navigation
 
 import android.net.Uri
+import android.util.Base64
 
 sealed class NavigationRoutes(val route: String) {
+
+    /** Encode filesystem paths so slashes and spaces survive Navigation deep links. */
+    object PdfViewerPathCodec {
+        fun encode(path: String): String =
+            Base64.encodeToString(path.toByteArray(Charsets.UTF_8), Base64.URL_SAFE or Base64.NO_WRAP)
+
+        fun decode(encoded: String): String {
+            if (encoded.isBlank()) return encoded
+            return try {
+                String(Base64.decode(encoded, Base64.URL_SAFE), Charsets.UTF_8)
+            } catch (_: IllegalArgumentException) {
+                Uri.decode(encoded)
+            }
+        }
+    }
 
     object Auth : NavigationRoutes("auth")
 
@@ -25,7 +41,7 @@ sealed class NavigationRoutes(val route: String) {
     object PdfViewer : NavigationRoutes("pdf_viewer?pdfPath={pdfPath}") {
         fun open(path: String? = null): String {
             if (path.isNullOrBlank()) return "pdf_viewer?pdfPath="
-            return "pdf_viewer?pdfPath=${Uri.encode(path)}"
+            return "pdf_viewer?pdfPath=${PdfViewerPathCodec.encode(path)}"
         }
     }
     object HighlightPdf : NavigationRoutes("highlight_pdf")

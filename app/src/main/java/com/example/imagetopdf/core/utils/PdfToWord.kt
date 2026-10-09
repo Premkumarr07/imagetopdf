@@ -65,7 +65,7 @@ object PdfToWord {
             outputFile.writeText(html)
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             false
         }
     }

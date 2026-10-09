@@ -49,7 +49,7 @@ object PdfCompress {
             FileOutputStream(outputFile).use { document.writeTo(it) }
             return true
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             return false
         } finally {
             document.close()

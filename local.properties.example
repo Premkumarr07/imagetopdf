@@ -7,3 +7,5 @@
 # sdk.dir=C\:\\Users\\YOUR_USERNAME\\AppData\\Local\\Android\\Sdk
 
 sdk.dir=/path/to/Android/sdk
+
+## Optional — release signing (see keystore.properties.example)

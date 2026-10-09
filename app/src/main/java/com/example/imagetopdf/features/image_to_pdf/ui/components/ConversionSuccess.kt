@@ -25,7 +25,8 @@ import com.example.imagetopdf.constants.AppColors
 @Composable
 fun ConversionSuccess(
     pdfName: String,
-    onDownload: () -> Unit,
+    onOpen: () -> Unit,
+    onSaveToDownloads: () -> Unit,
     onShare: () -> Unit
 ) {
     Card(
@@ -58,10 +59,17 @@ fun ConversionSuccess(
                 Text("PDF created!", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF065F46))
                 Text("Saved to your library · $pdfName.pdf", fontSize = 12.sp, color = AppColors.SlateGray)
             }
-            IconButton(onClick = onDownload) {
+            IconButton(onClick = onOpen) {
+                Icon(
+                    painter = painterResource(id = R.drawable.viewpdf),
+                    contentDescription = "Open PDF",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            IconButton(onClick = onSaveToDownloads) {
                 Icon(
                     painter = painterResource(id = R.drawable.downarrow),
-                    contentDescription = "Open PDF",
+                    contentDescription = "Save to Downloads",
                     modifier = Modifier.size(24.dp)
                 )
             }

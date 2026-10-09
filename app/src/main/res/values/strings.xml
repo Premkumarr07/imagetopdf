@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">imagetopdf</string>
+    <string name="app_name">ImageToPDF</string>
+    <string name="support_email">your-support-email@example.com</string>
+    <string name="privacy_policy_url">https://github.com/bhuvanprakash/imagetopdf/blob/main/PRIVACY.md</string>
 </resources>

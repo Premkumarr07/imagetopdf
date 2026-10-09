@@ -522,6 +522,25 @@ fun ScanDocScreen(navController: NavController) {
                                     ) {
                                         Text("Open")
                                     }
+                                    OutlinedButton(
+                                        onClick = {
+                                            savedPath?.let { path ->
+                                                val ok = com.example.imagetopdf.core.utils.PdfSaveHelper.exportToDownloads(
+                                                    context,
+                                                    java.io.File(path),
+                                                    outputName
+                                                )
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    if (ok) "Saved to Downloads/PDFMaker" else "Could not save",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text("Download")
+                                    }
                                     Button(
                                         onClick = {
                                             capturedBitmap = null
@@ -803,7 +822,7 @@ private fun saveBitmapAsPdf(
         val bytes = java.io.ByteArrayOutputStream().also { document.writeTo(it) }.toByteArray()
         return com.example.imagetopdf.core.utils.PdfSaveHelper.savePdfBytes(context, bytes, pdfName)
     } catch (e: Exception) {
-        e.printStackTrace()
+        com.example.imagetopdf.core.logging.AppLogger.e(e)
         return null
     } finally {
         document.close()

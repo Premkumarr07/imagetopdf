@@ -19,6 +19,7 @@ import com.example.imagetopdf.features.profile.ui.ProfileScreen
 import com.example.imagetopdf.features.templates.ui.TemplatesScreen
 import com.example.imagetopdf.features.tools.ui.ToolsScreen
 import com.example.imagetopdf.navigation.NavigationRoutes
+import com.example.imagetopdf.navigation.NavigationRoutes.PdfViewerPathCodec
 
 @Composable
 fun AppNavigation(
@@ -120,7 +121,8 @@ fun AppNavigation(
                 }
             )
         ) { entry ->
-            val path = entry.arguments?.getString("pdfPath")?.takeIf { it.isNotEmpty() }
+            val rawPath = entry.arguments?.getString("pdfPath")?.takeIf { it.isNotEmpty() }
+            val path = rawPath?.let(PdfViewerPathCodec::decode)
             PdfViewerScreen(navController = navController, initialPath = path)
         }
 

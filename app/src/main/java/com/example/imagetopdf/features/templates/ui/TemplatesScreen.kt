@@ -587,7 +587,7 @@ private fun generateTemplatePdf(
         document.finishPage(page)
         FileOutputStream(outputFile).use { document.writeTo(it) }
     } catch (e: Exception) {
-        e.printStackTrace()
+        com.example.imagetopdf.core.logging.AppLogger.e(e)
     } finally {
         document.close()
     }

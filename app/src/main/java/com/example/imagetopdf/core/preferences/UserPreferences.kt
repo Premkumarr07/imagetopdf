@@ -3,6 +3,7 @@ package com.example.imagetopdf.core.preferences
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.imagetopdf.MainActivity
+import com.example.imagetopdf.core.security.SecurePreferences
 
 enum class ThemeMode(val label: String) {
     SYSTEM("System default"),
@@ -106,10 +107,26 @@ object UserPreferences {
 
     fun qualityLabel(context: Context): String = getDefaultQuality(context).label
 
-    fun getLocalPassword(context: Context): String? =
-        prefs(context).getString(KEY_LOCAL_PASSWORD, null)
+    fun getLocalPassword(context: Context): String? {
+        val secure = SecurePreferences.prefs(context).getString(KEY_LOCAL_PASSWORD, null)
+        if (secure != null) return secure
+        val legacy = prefs(context).getString(KEY_LOCAL_PASSWORD, null)
+        if (legacy != null) {
+            setLocalPassword(context, legacy)
+            prefs(context).edit().remove(KEY_LOCAL_PASSWORD).apply()
+        }
+        return legacy
+    }
 
     fun setLocalPassword(context: Context, password: String) {
-        prefs(context).edit().putString(KEY_LOCAL_PASSWORD, password).apply()
+        SecurePreferences.prefs(context).edit()
+            .putString(KEY_LOCAL_PASSWORD, password)
+            .apply()
+        prefs(context).edit().remove(KEY_LOCAL_PASSWORD).apply()
+    }
+
+    fun clearLocalPassword(context: Context) {
+        SecurePreferences.prefs(context).edit().remove(KEY_LOCAL_PASSWORD).apply()
+        prefs(context).edit().remove(KEY_LOCAL_PASSWORD).apply()
     }
 }

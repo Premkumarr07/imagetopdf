@@ -32,7 +32,7 @@ object PdfSaveHelper {
             )
             SaveResult(appFile, uri)
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
             null
         }
     }
@@ -40,6 +40,18 @@ object PdfSaveHelper {
     fun savePdfFile(context: Context, sourceFile: File, baseName: String): SaveResult? {
         val bytes = sourceFile.readBytes()
         return savePdfBytes(context, bytes, baseName)
+    }
+
+    /** Copies the file into Downloads/PDFMaker (always, regardless of settings). */
+    fun exportToDownloads(context: Context, sourceFile: File, baseName: String = sourceFile.nameWithoutExtension): Boolean {
+        return try {
+            val cleanName = baseName.removeSuffix(".pdf").ifBlank { "document" }
+            copyToDownloads(context, sourceFile.readBytes(), cleanName)
+            true
+        } catch (e: Exception) {
+            com.example.imagetopdf.core.logging.AppLogger.e(e)
+            false
+        }
     }
 
     private fun writeToAppFolder(context: Context, bytes: ByteArray, baseName: String): File {

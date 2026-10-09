@@ -15,9 +15,12 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,22 +38,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.ZoomIn
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -73,6 +78,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,17 +101,40 @@ import androidx.navigation.NavController
 import com.example.imagetopdf.R
 import com.example.imagetopdf.constants.AppColors
 import com.example.imagetopdf.core.utils.PdfMerge
+import com.example.imagetopdf.core.utils.PdfSaveHelper
+import com.example.imagetopdf.navigation.NavigationRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.roundToInt
+
+private val pdfRenderMutex = Mutex()
 
 private val ReaderBgTop = Color(0xFF0B1220)
 private val ReaderBgBottom = Color(0xFF1A2332)
 private val ReaderSurface = Color(0xFF1E293B)
 private val ReaderAccent = Color(0xFF38BDF8)
 private val ReaderMuted = Color(0xFF94A3B8)
+
+private data class ViewerBreadcrumb(
+    val parentLabel: String,
+    val onParentClick: () -> Unit
+)
+
+private fun resolveViewerBreadcrumb(navController: NavController): ViewerBreadcrumb {
+    val previousRoute = navController.previousBackStackEntry?.destination?.route
+    return when (previousRoute) {
+        NavigationRoutes.Home.route -> ViewerBreadcrumb("Home") { navController.popBackStack() }
+        NavigationRoutes.MyFiles.route -> ViewerBreadcrumb("My Files") { navController.popBackStack() }
+        NavigationRoutes.Tools.route -> ViewerBreadcrumb("Tools") { navController.popBackStack() }
+        NavigationRoutes.ImageToPdf.route -> ViewerBreadcrumb("Images → PDF") { navController.popBackStack() }
+        NavigationRoutes.ScanDoc.route -> ViewerBreadcrumb("Scan") { navController.popBackStack() }
+        else -> ViewerBreadcrumb("Library") { navController.popBackStack() }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,12 +144,18 @@ fun PdfViewerScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val breadcrumb = remember(navController) { resolveViewerBreadcrumb(navController) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
     val maxRenderWidthPx = remember {
         (context.resources.displayMetrics.widthPixels * 1.35f).roundToInt()
     }
 
     var selectedFile by remember { mutableStateOf<File?>(null) }
+    var isOpeningDocument by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    var visiblePage by remember { mutableIntStateOf(0) }
     var fileName by remember { mutableStateOf("") }
     var fileSizeLabel by remember { mutableStateOf("") }
     var pageCount by remember { mutableIntStateOf(0) }
@@ -133,11 +168,6 @@ fun PdfViewerScreen(
     val thumbBitmaps = remember { mutableStateMapOf<Int, Bitmap>() }
     var loadingPages by remember { mutableStateOf(setOf<Int>()) }
 
-    val pagerState = rememberPagerState(
-        initialPage = 0,
-        pageCount = { pageCount.coerceAtLeast(1) }
-    )
-
     fun clearDocument() {
         pageBitmaps.values.forEach { it.recycle() }
         thumbBitmaps.values.forEach { it.recycle() }
@@ -149,29 +179,61 @@ fun PdfViewerScreen(
         fileSizeLabel = ""
         pageCount = 0
         loadingPages = emptySet()
+        isOpeningDocument = false
+        visiblePage = 0
+    }
+
+    fun downloadCurrentPdf() {
+        val file = selectedFile ?: return
+        if (isDownloading) return
+        isDownloading = true
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                PdfSaveHelper.exportToDownloads(context, file, fileName.ifBlank { file.nameWithoutExtension })
+            }
+            isDownloading = false
+            snackbarHostState.showSnackbar(
+                if (saved) "Saved to Downloads/PDFMaker" else "Could not save to Downloads"
+            )
+        }
     }
 
     fun bindFile(file: File) {
         if (!file.exists()) {
             loadError = "This file is no longer on your device."
             selectedFile = null
+            isOpeningDocument = false
+            pageCount = 0
             return
         }
         pageBitmaps.values.forEach { it.recycle() }
         thumbBitmaps.values.forEach { it.recycle() }
         pageBitmaps.clear()
         thumbBitmaps.clear()
-        selectedFile = file
         loadError = null
+        isOpeningDocument = true
+        visiblePage = 0
         fileName = file.nameWithoutExtension
         fileSizeLabel = formatFileSize(file.length())
-        val count = PdfMerge.getPageCount(file)
-        pageCount = count
-        scope.launch { pagerState.scrollToPage(0) }
+        scope.launch {
+            val count = withContext(Dispatchers.IO) { PdfMerge.getPageCount(file) }
+            if (count <= 0) {
+                selectedFile = null
+                pageCount = 0
+                loadError = "Couldn't read this PDF. It may be password-protected or damaged."
+                isOpeningDocument = false
+                return@launch
+            }
+            selectedFile = file
+            pageCount = count
+            isOpeningDocument = false
+            listState.scrollToItem(0)
+        }
     }
 
     LaunchedEffect(initialPath) {
-        initialPath?.let { path ->
+        val path = initialPath?.trim()
+        if (!path.isNullOrEmpty()) {
             bindFile(File(path))
         }
     }
@@ -189,9 +251,17 @@ fun PdfViewerScreen(
         if (pageBitmaps.containsKey(index) || loadingPages.contains(index)) return
         loadingPages = loadingPages + index
         val bitmap = withContext(Dispatchers.IO) {
-            renderPdfPage(file, index, maxRenderWidthPx)
+            pdfRenderMutex.withLock {
+                renderPdfPage(file, index, maxRenderWidthPx)
+            }
         }
-        if (bitmap != null) pageBitmaps[index] = bitmap
+        if (bitmap != null) {
+            pageBitmaps[index] = bitmap
+        } else if (index == 0 && pageBitmaps.isEmpty()) {
+            loadError = "Couldn't render this PDF. Try opening it in another app."
+            selectedFile = null
+            pageCount = 0
+        }
         loadingPages = loadingPages - index
     }
 
@@ -202,12 +272,21 @@ fun PdfViewerScreen(
         if (pageCount > 1) ensurePageRendered(1)
     }
 
-    LaunchedEffect(pagerState.currentPage, selectedFile) {
-        if (selectedFile == null) return@LaunchedEffect
-        val page = pagerState.currentPage
-        ensurePageRendered(page)
-        if (page > 0) ensurePageRendered(page - 1)
-        if (page < pageCount - 1) ensurePageRendered(page + 1)
+    LaunchedEffect(listState, selectedFile, pageCount) {
+        if (selectedFile == null || pageCount == 0) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val indices = info.visibleItemsInfo.map { it.index }.toSet()
+            val first = info.visibleItemsInfo.firstOrNull()?.index ?: 0
+            indices to first
+        }.collect { (indices, first) ->
+            visiblePage = first.coerceIn(0, pageCount - 1)
+            indices.forEach { ensurePageRendered(it) }
+            val min = indices.minOrNull() ?: first
+            val max = indices.maxOrNull() ?: first
+            if (min > 0) ensurePageRendered(min - 1)
+            if (max < pageCount - 1) ensurePageRendered(max + 1)
+        }
     }
 
     DisposableEffect(selectedFile) {
@@ -235,59 +314,94 @@ fun PdfViewerScreen(
             }
 
             selectedFile == null -> {
-                ViewerEmptyState(onPick = { picker.launch("application/pdf") })
+                ViewerEmptyState(
+                    breadcrumb = breadcrumb,
+                    onPick = { picker.launch("application/pdf") }
+                )
             }
 
-            pageCount == 0 -> {
+            isOpeningDocument || (selectedFile != null && pageCount == 0) -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = ReaderAccent)
                 }
             }
 
             else -> {
-                HorizontalPager(
-                    state = pagerState,
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
                             detectTapGestures(onTap = { chromeVisible = !chromeVisible })
                         },
                     contentPadding = PaddingValues(
-                        top = if (chromeVisible) 88.dp else 24.dp,
-                        bottom = if (chromeVisible) 160.dp else 32.dp,
+                        top = if (chromeVisible) 112.dp else 24.dp,
+                        bottom = if (chromeVisible) 200.dp else 40.dp,
                         start = 12.dp,
                         end = 12.dp
                     ),
-                    pageSpacing = 16.dp,
-                    beyondViewportPageCount = 1
-                ) { page ->
-                    val bitmap = pageBitmaps[page]
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (bitmap != null) {
-                            ZoomablePage(
-                                bitmap = bitmap.asImageBitmap(),
-                                pageKey = page
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    items(
+                        count = pageCount,
+                        key = { it }
+                    ) { page ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Page ${page + 1}",
+                                color = ReaderMuted,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
                             )
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(
-                                    color = ReaderAccent,
-                                    strokeWidth = 3.dp,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                                Spacer(Modifier.height(12.dp))
-                                Text(
-                                    "Rendering page ${page + 1}",
-                                    color = ReaderMuted,
-                                    fontSize = 13.sp
-                                )
+                            val bitmap = pageBitmaps[page]
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (bitmap != null) {
+                                    ZoomablePage(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        pageKey = page
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(280.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = ReaderAccent,
+                                            strokeWidth = 3.dp,
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        Text(
+                                            "Rendering page ${page + 1}",
+                                            color = ReaderMuted,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = if (chromeVisible) 180.dp else 48.dp)
+                        .navigationBarsPadding()
+                )
 
                 AnimatedVisibility(
                     visible = chromeVisible,
@@ -296,12 +410,17 @@ fun PdfViewerScreen(
                     modifier = Modifier.align(Alignment.TopCenter)
                 ) {
                     ViewerTopBar(
+                        breadcrumb = breadcrumb,
                         title = fileName,
                         meta = "$fileSizeLabel · $pageCount pages",
                         onBack = {
-                            if (initialPath != null) navController.popBackStack()
-                            else clearDocument()
+                            when {
+                                selectedFile != null && initialPath == null -> clearDocument()
+                                else -> navController.popBackStack()
+                            }
                         },
+                        onDownload = { downloadCurrentPdf() },
+                        isDownloading = isDownloading,
                         onShare = { selectedFile?.let { sharePdf(context, it) } },
                         onOpenExternal = { selectedFile?.let { openExternal(context, it) } }
                     )
@@ -314,15 +433,21 @@ fun PdfViewerScreen(
                     modifier = Modifier.align(Alignment.BottomCenter)
                 ) {
                     ViewerBottomChrome(
-                        currentPage = pagerState.currentPage,
+                        currentPage = visiblePage,
                         pageCount = pageCount,
+                        onDownload = { downloadCurrentPdf() },
+                        isDownloading = isDownloading,
                         onShowGrid = {
                             showPageGrid = true
                             scope.launch {
                                 for (i in 0 until pageCount.coerceAtMost(24)) {
                                     if (!thumbBitmaps.containsKey(i)) {
                                         val thumb = withContext(Dispatchers.IO) {
-                                            selectedFile?.let { renderPdfPage(it, i, 180) }
+                                            selectedFile?.let { file ->
+                                                pdfRenderMutex.withLock {
+                                                    renderPdfPage(file, i, 180)
+                                                }
+                                            }
                                         }
                                         if (thumb != null) thumbBitmaps[i] = thumb
                                     }
@@ -330,11 +455,11 @@ fun PdfViewerScreen(
                             }
                         },
                         onGoToPage = {
-                            goToPageInput = (pagerState.currentPage + 1).toString()
+                            goToPageInput = (visiblePage + 1).toString()
                             showGoToPage = true
                         },
                         onPageSelected = { index ->
-                            scope.launch { pagerState.animateScrollToPage(index) }
+                            scope.launch { listState.animateScrollToItem(index) }
                         }
                     )
                 }
@@ -349,7 +474,7 @@ fun PdfViewerScreen(
                         color = ReaderSurface.copy(alpha = 0.92f)
                     ) {
                         Text(
-                            text = "${pagerState.currentPage + 1} / $pageCount",
+                            text = "${visiblePage + 1} / $pageCount",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold,
@@ -378,7 +503,7 @@ fun PdfViewerScreen(
                     onClick = {
                         val target = goToPageInput.toIntOrNull()?.minus(1) ?: 0
                         val clamped = target.coerceIn(0, pageCount - 1)
-                        scope.launch { pagerState.animateScrollToPage(clamped) }
+                        scope.launch { listState.animateScrollToItem(clamped) }
                         showGoToPage = false
                     }
                 ) { Text("Go") }
@@ -415,12 +540,12 @@ fun PdfViewerScreen(
                     modifier = Modifier.height(360.dp)
                 ) {
                     items((0 until pageCount).toList()) { index ->
-                        val selected = index == pagerState.currentPage
+                        val selected = index == visiblePage
                         val thumb = thumbBitmaps[index] ?: pageBitmaps[index]
                         Surface(
                             onClick = {
                                 scope.launch {
-                                    pagerState.animateScrollToPage(index)
+                                    listState.animateScrollToItem(index)
                                     showPageGrid = false
                                 }
                             },
@@ -474,7 +599,10 @@ fun PdfViewerScreen(
 }
 
 @Composable
-private fun ZoomablePage(bitmap: androidx.compose.ui.graphics.ImageBitmap, pageKey: Int) {
+private fun ZoomablePage(
+    bitmap: androidx.compose.ui.graphics.ImageBitmap,
+    pageKey: Int
+) {
     var scale by remember(pageKey) { mutableFloatStateOf(1f) }
     var offset by remember(pageKey) { mutableStateOf(Offset.Zero) }
 
@@ -520,14 +648,44 @@ private fun ZoomablePage(bitmap: androidx.compose.ui.graphics.ImageBitmap, pageK
 }
 
 @Composable
+private fun ViewerBreadcrumbRow(breadcrumb: ViewerBreadcrumb) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = breadcrumb.parentLabel,
+            color = ReaderAccent,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.clickable { breadcrumb.onParentClick() }
+        )
+        Icon(
+            Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint = ReaderMuted,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = "View PDF",
+            color = ReaderMuted,
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
 private fun ViewerTopBar(
+    breadcrumb: ViewerBreadcrumb,
     title: String,
     meta: String,
     onBack: () -> Unit,
+    onDownload: () -> Unit,
+    isDownloading: Boolean,
     onShare: () -> Unit,
     onOpenExternal: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
@@ -536,28 +694,51 @@ private fun ViewerTopBar(
                     listOf(Color(0xE60B1220), Color(0x000B1220))
                 )
             )
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 8.dp, vertical = 8.dp)
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, null, tint = Color.White)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, null, tint = Color.White)
+            }
+            ViewerBreadcrumbRow(breadcrumb)
         }
-        Column(Modifier.weight(1f)) {
-            Text(
-                title,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(meta, color = ReaderMuted, fontSize = 12.sp, maxLines = 1)
-        }
-        IconButton(onClick = onShare) {
-            Icon(Icons.Outlined.Share, null, tint = Color.White)
-        }
-        IconButton(onClick = onOpenExternal) {
-            Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, tint = Color.White)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(meta, color = ReaderMuted, fontSize = 12.sp, maxLines = 1)
+            }
+            IconButton(onClick = onDownload, enabled = !isDownloading) {
+                if (isDownloading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = ReaderAccent,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.downarrow),
+                        contentDescription = "Save to Downloads",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            IconButton(onClick = onShare) {
+                Icon(Icons.Outlined.Share, null, tint = Color.White)
+            }
+            IconButton(onClick = onOpenExternal) {
+                Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, tint = Color.White)
+            }
         }
     }
 }
@@ -566,6 +747,8 @@ private fun ViewerTopBar(
 private fun ViewerBottomChrome(
     currentPage: Int,
     pageCount: Int,
+    onDownload: () -> Unit,
+    isDownloading: Boolean,
     onShowGrid: () -> Unit,
     onGoToPage: () -> Unit,
     onPageSelected: (Int) -> Unit
@@ -593,6 +776,29 @@ private fun ViewerBottomChrome(
                 fontSize = 14.sp
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FilledTonalIconButton(
+                    onClick = onDownload,
+                    enabled = !isDownloading,
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = ReaderAccent.copy(alpha = 0.25f),
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    if (isDownloading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = ReaderAccent,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.downarrow),
+                            contentDescription = "Download",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
                 IconButton(
                     onClick = onGoToPage,
                     colors = IconButtonDefaults.iconButtonColors(
@@ -638,7 +844,7 @@ private fun ViewerBottomChrome(
             )
         )
         Text(
-            "Swipe to turn pages · Pinch or double-tap to zoom",
+            "Scroll vertically · Pinch or double-tap to zoom",
             color = ReaderMuted,
             fontSize = 11.sp,
             modifier = Modifier.fillMaxWidth(),
@@ -648,14 +854,29 @@ private fun ViewerBottomChrome(
 }
 
 @Composable
-private fun ViewerEmptyState(onPick: () -> Unit) {
-    Column(
+private fun ViewerEmptyState(
+    breadcrumb: ViewerBreadcrumb,
+    onPick: () -> Unit
+) {
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(horizontal = 28.dp)
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .align(Alignment.TopStart)
+        ) {
+            ViewerBreadcrumbRow(breadcrumb)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Surface(
             shape = CircleShape,
             color = ReaderSurface,
@@ -679,7 +900,7 @@ private fun ViewerEmptyState(onPick: () -> Unit) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Read, zoom, and flip through pages without leaving the app.",
+            "Scroll through pages vertically, zoom in, and save to Downloads anytime.",
             color = ReaderMuted,
             fontSize = 14.sp,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -693,6 +914,7 @@ private fun ViewerEmptyState(onPick: () -> Unit) {
             Icon(painterResource(R.drawable.pdf), null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text("Browse files", fontWeight = FontWeight.Bold)
+        }
         }
     }
 }

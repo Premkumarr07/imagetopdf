@@ -98,8 +98,10 @@ fun LoginScreen(
         )
 
         Text(
-            text = "Login to continue",
-            color = AppColors.SlateGray
+            text = "Your PDFs stay on this device. Set a local passcode to open the app.",
+            color = AppColors.SlateGray,
+            fontSize = 14.sp,
+            lineHeight = 20.sp
         )
 
         Spacer(Modifier.height(30.dp))
@@ -176,7 +178,7 @@ fun LoginScreen(
         Spacer(Modifier.height(16.dp))
 
         OutlinedButton(
-            onClick = { viewModel.loginWithGoogle(onLoginSuccess) },
+            onClick = { viewModel.continueAsGuest(onLoginSuccess) },
             enabled = !uiState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
@@ -185,30 +187,16 @@ fun LoginScreen(
         ) {
             Icon(Icons.Outlined.AccountCircle, null)
             Spacer(Modifier.width(8.dp))
-            Text("Continue with Google")
+            Text("Continue without passcode")
         }
 
         Spacer(Modifier.height(20.dp))
 
         Text(
-            "Forgot Password?",
-            color = AppColors.DarkBlue,
-            modifier = Modifier.clickable { }
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        Row(
-            horizontalArrangement = Arrangement.Center,
+            "Forgot passcode? Clear app storage in Android Settings to reset.",
+            color = AppColors.SlateGray,
+            fontSize = 12.sp,
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Don't have an account? ", color = AppColors.SlateGray)
-            Text(
-                "Sign Up",
-                color = AppColors.DarkBlue,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable { }
-            )
-        }
+        )
     }
 }
