@@ -6,8 +6,11 @@ import com.example.imagetopdf.features.home.model.PdfFileModel
 import com.example.imagetopdf.features.home.repository.PdfFileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
@@ -25,6 +28,9 @@ class HomeViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _userMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
     init {
         loadFiles()
@@ -51,7 +57,8 @@ class HomeViewModel @Inject constructor(
     fun deleteFile(file: PdfFileModel) {
         viewModelScope.launch {
             pdfFileRepository.deleteFile(file.path)
-            loadFiles() // Refresh list
+            loadFiles()
+            _userMessage.tryEmit("Deleted ${file.name}")
         }
     }
 

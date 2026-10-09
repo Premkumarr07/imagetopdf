@@ -74,6 +74,13 @@ See [PRIVACY.md](PRIVACY.md) for the full policy (on-device storage, permissions
 
 CI runs `assembleDebug`, `lintDebug`, and unit tests on push/PR via `.github/workflows/android.yml`.
 
+### UX highlights
+
+- First-run **onboarding** (skippable) after sign-in.
+- **Pull to refresh** on Home; **snackbar** feedback for imports, deletes, and saves.
+- **Confirm before delete** on Home and My Files.
+- **Splash screen** on cold start.
+
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).

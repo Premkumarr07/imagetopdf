@@ -40,8 +40,12 @@ import androidx.navigation.NavController
 import com.example.imagetopdf.R
 import com.example.imagetopdf.constants.AppColors
 import com.example.imagetopdf.features.home.model.PdfFileModel
+import com.example.imagetopdf.core.ui.ConfirmDeleteDialog
+import com.example.imagetopdf.core.ui.LocalAppSnackbarHostState
 import com.example.imagetopdf.features.myfiles.viewmodel.MyFilesViewModel
 import com.example.imagetopdf.navigation.NavigationRoutes
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 
 enum class SortMode(val label: String) {
@@ -70,6 +74,24 @@ fun MyFilesScreen(
     val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
+    val snackbar = LocalAppSnackbarHostState.current
+    var filePendingDelete by remember { mutableStateOf<PdfFileModel?>(null) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.userMessage.collectLatest { snackbar.showSnackbar(it) }
+    }
+
+    filePendingDelete?.let { file ->
+        ConfirmDeleteDialog(
+            fileName = file.name,
+            onConfirm = {
+                viewModel.deleteFile(file)
+                filePendingDelete = null
+            },
+            onDismiss = { filePendingDelete = null }
+        )
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -96,11 +118,11 @@ fun MyFilesScreen(
             when {
                 isLoading -> ShimmerList()
                 files.isEmpty() && searchQuery.isNotEmpty() -> NoSearchResults(searchQuery)
-                files.isEmpty() -> EmptyFolderState()
+                files.isEmpty() -> EmptyFolderState(navController = navController)
                 else -> FileList(
                     files = files,
                     navController = navController,
-                    onDelete = { viewModel.deleteFile(it) }
+                    onDelete = { filePendingDelete = it }
                 )
             }
 
@@ -245,6 +267,8 @@ private fun FileList(
 @Composable
 private fun FileItem(file: PdfFileModel, navController: NavController, onDelete: () -> Unit) {
     val context = LocalContext.current
+    val snackbar = LocalAppSnackbarHostState.current
+    val scope = rememberCoroutineScope()
 
     var showMenu by remember {
         mutableStateOf(false) }
@@ -302,7 +326,10 @@ private fun FileItem(file: PdfFileModel, navController: NavController, onDelete:
                     )
                     DropdownMenuItem(
                         text = { Text("Rename") },
-                        onClick = { showMenu = false },
+                        onClick = {
+                            showMenu = false
+                            scope.launch { snackbar.showSnackbar("Rename is coming in a future update") }
+                        },
                         leadingIcon = { Icon(Icons.Outlined.Edit, null) }
                     )
                     HorizontalDivider()
@@ -321,19 +348,36 @@ private fun MetaChip(icon: ImageVector, label: String) {
     }
 }
 @Composable
-private fun EmptyFolderState() {
+private fun EmptyFolderState(navController: NavController) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
             Image(
                 painter = painterResource(id = R.drawable.folderopen),
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(48.dp),
                 colorFilter = ColorFilter.tint(AppColors.LightSlate)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text("No PDFs yet", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
             Spacer(modifier = Modifier.height(6.dp))
-            Text("Files you convert will appear here.\nSaved to Documents/ImageToPDF/", fontSize = 13.sp, color = AppColors.SlateGray, textAlign = TextAlign.Center)
+            Text(
+                "Files you create are saved in your app library (PDFMaker).",
+                fontSize = 13.sp,
+                color = AppColors.SlateGray,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { navController.navigate(NavigationRoutes.ScanDoc.route) }) {
+                    Text("Scan")
+                }
+                Button(
+                    onClick = { navController.navigate(NavigationRoutes.ImageToPdf.route) },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.TealColor)
+                ) {
+                    Text("Convert images")
+                }
+            }
         }
     }
 }

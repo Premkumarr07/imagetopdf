@@ -21,6 +21,7 @@ sealed class NavigationRoutes(val route: String) {
     }
 
     object Auth : NavigationRoutes("auth")
+    object Onboarding : NavigationRoutes("onboarding")
 
     object Home : NavigationRoutes("home")
     object MyFiles : NavigationRoutes("my_files")

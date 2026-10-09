@@ -13,7 +13,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +28,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.example.imagetopdf.core.ui.ConfirmDeleteDialog
+import com.example.imagetopdf.core.ui.LocalAppSnackbarHostState
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -57,6 +62,7 @@ private data class HomeQuickAction(
     val route: String
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -66,6 +72,30 @@ fun HomeScreen(
     val scrollState = rememberScrollState()
     val uiState by viewModel.uiState.collectAsState()
     val userName = remember { UserPreferences.getDisplayName(context) }
+
+    val snackbar = LocalAppSnackbarHostState.current
+    var filePendingDelete by remember { mutableStateOf<PdfFileModel?>(null) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.userMessage.collectLatest { snackbar.showSnackbar(it) }
+    }
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbar.showSnackbar(it)
+            viewModel.dismissError()
+        }
+    }
+
+    filePendingDelete?.let { file ->
+        ConfirmDeleteDialog(
+            fileName = file.name,
+            onConfirm = {
+                viewModel.deleteFile(file)
+                filePendingDelete = null
+            },
+            onDismiss = { filePendingDelete = null }
+        )
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -92,9 +122,13 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { viewModel.loadFiles() },
+            modifier = Modifier.weight(1f)
+        ) {
         Column(
             modifier = Modifier
-                .weight(1f)
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
         ) {
@@ -160,10 +194,13 @@ fun HomeScreen(
                 onOpen = { file ->
                     navController.navigate(NavigationRoutes.PdfViewer.open(file.path))
                 },
-                onDelete = { viewModel.deleteFile(it) }
+                onDelete = { filePendingDelete = it },
+                onScan = { navController.navigate(NavigationRoutes.ScanDoc.route) },
+                onConvertImages = { navController.navigate(NavigationRoutes.ImageToPdf.route) }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
         }
     }
 }
@@ -316,7 +353,9 @@ fun RecentFilesSection(
     onSeeAll: () -> Unit,
     onShare: (PdfFileModel) -> Unit,
     onOpen: (PdfFileModel) -> Unit,
-    onDelete: (PdfFileModel) -> Unit
+    onDelete: (PdfFileModel) -> Unit,
+    onScan: () -> Unit,
+    onConvertImages: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -344,7 +383,7 @@ fun RecentFilesSection(
             ShimmerFileItem()
             Spacer(modifier = Modifier.height(8.dp))
         }
-        files.isEmpty() -> EmptyFilesState()
+        files.isEmpty() -> EmptyFilesState(onScan = onScan, onConvertImages = onConvertImages)
         else -> files.take(5).forEach { file ->
             RecentFileItem(
                 file = file,
@@ -453,7 +492,10 @@ private fun ShimmerFileItem() {
 }
 
 @Composable
-private fun EmptyFilesState() {
+private fun EmptyFilesState(
+    onScan: () -> Unit,
+    onConvertImages: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -480,6 +522,14 @@ private fun EmptyFilesState() {
                 color = AppColors.SlateGray,
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onScan) { Text("Scan") }
+                Button(
+                    onClick = onConvertImages,
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.DarkBlue)
+                ) { Text("Images → PDF") }
+            }
         }
     }
 }

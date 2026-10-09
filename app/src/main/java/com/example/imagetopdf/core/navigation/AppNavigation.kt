@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.imagetopdf.features.auth.ui.LoginScreen
 import com.example.imagetopdf.features.home.ui.HomeScreen
+import com.example.imagetopdf.features.onboarding.ui.OnboardingScreen
 import com.example.imagetopdf.features.image_to_pdf.ui.ImageToPdfScreen
 import com.example.imagetopdf.features.myfiles.ui.MyFilesScreen
 import com.example.imagetopdf.features.pdf_editor.ui.*
@@ -20,6 +21,20 @@ import com.example.imagetopdf.features.templates.ui.TemplatesScreen
 import com.example.imagetopdf.features.tools.ui.ToolsScreen
 import com.example.imagetopdf.navigation.NavigationRoutes
 import com.example.imagetopdf.navigation.NavigationRoutes.PdfViewerPathCodec
+
+private fun navigateAfterLogin(
+    context: android.content.Context,
+    navController: NavHostController
+) {
+    val next = if (UserPreferences.hasCompletedOnboarding(context)) {
+        NavigationRoutes.Home.route
+    } else {
+        NavigationRoutes.Onboarding.route
+    }
+    navController.navigate(next) {
+        popUpTo(NavigationRoutes.Auth.route) { inclusive = true }
+    }
+}
 
 @Composable
 fun AppNavigation(
@@ -42,8 +57,18 @@ fun AppNavigation(
                         .edit()
                         .putBoolean(MainActivity.KEY_LOGGED_IN, true)
                         .apply()
+                    navigateAfterLogin(context, navController)
+                }
+            )
+        }
+
+        composable(NavigationRoutes.Onboarding.route) {
+            val context = LocalContext.current
+            OnboardingScreen(
+                onFinished = {
+                    UserPreferences.setOnboardingComplete(context)
                     navController.navigate(NavigationRoutes.Home.route) {
-                        popUpTo(NavigationRoutes.Auth.route) { inclusive = true }
+                        popUpTo(NavigationRoutes.Onboarding.route) { inclusive = true }
                     }
                 }
             )

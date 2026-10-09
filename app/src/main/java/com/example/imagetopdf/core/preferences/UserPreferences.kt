@@ -27,6 +27,7 @@ object UserPreferences {
     private const val KEY_NOTIFY_DONE = "notify_conversion_done"
     private const val KEY_DEFAULT_QUALITY = "default_pdf_quality"
     private const val KEY_SAVE_DOWNLOADS = "save_to_downloads"
+    private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     const val KEY_LOCAL_PASSWORD = "local_password"
 
     fun prefs(context: Context): SharedPreferences =
@@ -128,5 +129,12 @@ object UserPreferences {
     fun clearLocalPassword(context: Context) {
         SecurePreferences.prefs(context).edit().remove(KEY_LOCAL_PASSWORD).apply()
         prefs(context).edit().remove(KEY_LOCAL_PASSWORD).apply()
+    }
+
+    fun hasCompletedOnboarding(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONBOARDING_COMPLETE, false)
+
+    fun setOnboardingComplete(context: Context) {
+        prefs(context).edit().putBoolean(KEY_ONBOARDING_COMPLETE, true).apply()
     }
 }

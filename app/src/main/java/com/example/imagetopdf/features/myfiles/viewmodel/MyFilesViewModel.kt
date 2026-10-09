@@ -11,8 +11,11 @@ import com.example.imagetopdf.features.home.repository.PdfFileRepository
 import com.example.imagetopdf.features.myfiles.ui.SortMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -35,6 +38,9 @@ class MyFilesViewModel @Inject constructor(
     val sortMode: StateFlow<SortMode> = _sortMode.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _userMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
 
     init {
         loadFiles()
@@ -82,9 +88,11 @@ class MyFilesViewModel @Inject constructor(
                 )
 
                 loadFiles()
+                _userMessage.tryEmit("PDF imported")
 
             } catch (e: Exception) {
                 com.example.imagetopdf.core.logging.AppLogger.e(e)
+                _userMessage.tryEmit("Could not import that file")
             }
         }
     }
@@ -104,6 +112,7 @@ class MyFilesViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             pdfFileRepository.deleteFile(file.path)
             loadFiles()
+            _userMessage.tryEmit("Deleted ${file.name}")
         }
     }
 
@@ -120,6 +129,7 @@ class MyFilesViewModel @Inject constructor(
             val bytes = stream.toByteArray()
             pdfFileRepository.savePdfToAppFolder(bytes, "Blank_${System.currentTimeMillis()}")
             loadFiles()
+            _userMessage.tryEmit("Blank PDF created")
         }
     }
 
