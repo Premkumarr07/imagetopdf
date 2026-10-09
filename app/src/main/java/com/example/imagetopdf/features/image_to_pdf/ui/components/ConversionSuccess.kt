@@ -56,7 +56,7 @@ fun ConversionSuccess(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("PDF created!", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF065F46))
-                Text("Saved to Downloads/$pdfName.pdf", fontSize = 12.sp, color = AppColors.SlateGray)
+                Text("Saved to your library · $pdfName.pdf", fontSize = 12.sp, color = AppColors.SlateGray)
             }
             IconButton(onClick = onDownload) {
                 Icon(

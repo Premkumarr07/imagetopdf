@@ -38,7 +38,7 @@ data class ToolCategory(val heading: String, val items: List<ToolItem>)
 
 private val popularTools = listOf(
     ToolItem(iconRes  = R.drawable.compression,     "Compress",  "", AppColors.Blue,      AppColors.BlueBg,      NavigationRoutes.Compress.route),
-    ToolItem(iconRes  = R.drawable.viewpdf, "View PDF",  "", AppColors.TealGreen, AppColors.TealGreenBg),
+    ToolItem(iconRes  = R.drawable.viewpdf, "View PDF",  "", AppColors.TealGreen, AppColors.TealGreenBg, NavigationRoutes.PdfViewer.route),
     ToolItem(iconRes  = R.drawable.edit,      "Edit PDF",  "", AppColors.Purple,    AppColors.PurpleBg,    NavigationRoutes.PdfEditor.route),
 )
 
@@ -46,22 +46,23 @@ private val toolCategories = listOf(
     ToolCategory("Create PDF", listOf(
         ToolItem(iconRes  = R.drawable.imapdf,          "Images → PDF",   "Convert images to a PDF file",      AppColors.Orange,    AppColors.OrangeBg,    NavigationRoutes.ImageToPdf.route),
         ToolItem(iconRes  = R.drawable.qr, "Scan PDF",       "Scan documents with camera",         AppColors.TealGreen, AppColors.TealGreenBg, NavigationRoutes.ScanDoc.route),
+        ToolItem(iconRes  = R.drawable.viewpdf,          "Templates",      "Pre-made document templates",        AppColors.Purple,    AppColors.PurpleBg,    NavigationRoutes.Templates.route),
     )),
     ToolCategory("Manage PDF", listOf(
         ToolItem(iconRes  = R.drawable.compression,        "Compress",       "Reduce size (mb) of your PDF file",  AppColors.Blue,   AppColors.BlueBg,   NavigationRoutes.Compress.route),
         ToolItem(iconRes  = R.drawable.merge,       "Merge PDFs",     "Join 2 or more PDF files together",  AppColors.Purple, AppColors.PurpleBg, NavigationRoutes.MergePdf.route),
-        ToolItem(iconRes  = R.drawable.splitpdf,       "Split PDF",      "Break a PDF into different pages",   AppColors.Orange, AppColors.OrangeBg),
-        ToolItem(iconRes  = R.drawable.layer,     "Rearrange PDF",  "Change page order in any PDF",       AppColors.Amber,  AppColors.AmberBg),
+        ToolItem(iconRes  = R.drawable.splitpdf,       "Split PDF",      "Break a PDF into different pages",   AppColors.Orange, AppColors.OrangeBg, NavigationRoutes.SplitPdf.route),
+        ToolItem(iconRes  = R.drawable.layer,     "Rearrange PDF",  "Change page order in any PDF",       AppColors.Amber,  AppColors.AmberBg, NavigationRoutes.RearrangePdf.route),
         ToolItem(iconRes  = R.drawable.encrypt,            "Encrypt PDF",    "Password protect your PDF",          AppColors.Rose,   AppColors.RoseBg,   NavigationRoutes.Encrypt.route),
     )),
     ToolCategory("Convert from PDF", listOf(
-        ToolItem(iconRes  = R.drawable.pdftojpg,          "PDF → JPG",      "Convert a PDF file into JPG images", AppColors.TealGreen, AppColors.TealGreenBg),
-        ToolItem(iconRes  = R.drawable.word,     "PDF → Word",     "Convert PDF to editable Word doc",   AppColors.Blue,      AppColors.BlueBg),
+        ToolItem(iconRes  = R.drawable.pdftojpg,          "PDF → JPG",      "Convert a PDF file into JPG images", AppColors.TealGreen, AppColors.TealGreenBg, NavigationRoutes.PdfToJpg.route),
+        ToolItem(iconRes  = R.drawable.word,     "PDF → Word",     "Convert PDF to editable Word doc",   AppColors.Blue,      AppColors.BlueBg, NavigationRoutes.PdfToWord.route),
     )),
     ToolCategory("Edit PDF", listOf(
         ToolItem(iconRes  = R.drawable.edit,          "Write on PDF",   "Annotate using Pen Tool on PDF",     AppColors.Purple,    AppColors.PurpleBg,    NavigationRoutes.PdfEditor.route),
-        ToolItem(iconRes  = R.drawable.edit,      "Highlight PDF",  "Highlight text on a PDF",            AppColors.Amber,     AppColors.AmberBg),
-        ToolItem(iconRes  = R.drawable.edit,     "eSign PDF",      "Put your sign on your PDF",          AppColors.TealGreen, AppColors.TealGreenBg),
+        ToolItem(iconRes  = R.drawable.edit,      "Highlight PDF",  "Highlight text on a PDF",            AppColors.Amber,     AppColors.AmberBg, NavigationRoutes.HighlightPdf.route),
+        ToolItem(iconRes  = R.drawable.edit,     "eSign PDF",      "Put your sign on your PDF",          AppColors.TealGreen, AppColors.TealGreenBg, NavigationRoutes.EsignPdf.route),
     )),
 )
 

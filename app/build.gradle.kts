@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.imagetopdf"  // change to your package
+    namespace = "com.example.imagetopdf"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.imagetopdf"  // change to your package
+        applicationId = "com.example.imagetopdf"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -41,6 +41,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -53,6 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.foundation.layout)

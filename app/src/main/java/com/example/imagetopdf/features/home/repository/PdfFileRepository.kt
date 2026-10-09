@@ -57,7 +57,8 @@ class PdfFileRepository @Inject constructor(
                     sizeLabel = formatSize(file.length()),
                     dateLabel = dateFormat.format(Date(file.lastModified())),
                     lastModified = file.lastModified(),
-                    sizeBytes = file.length()
+                    sizeBytes = file.length(),
+                    uri = getFileUri(file)
                 )
             }
             ?: emptyList()
@@ -119,7 +120,7 @@ class PdfFileRepository @Inject constructor(
                 val appDir = File(downloadsDir, "PDFMaker").apply { mkdirs() }
                 val file = File(appDir, "$fileName.pdf")
                 FileOutputStream(file).use { it.write(pdfBytes) }
-                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -170,7 +171,7 @@ class PdfFileRepository @Inject constructor(
     fun getFileUri(file: File): Uri {
         return FileProvider.getUriForFile(
             context,
-            "${context.packageName}.fileprovider",
+            "${context.packageName}.provider",
             file
         )
     }

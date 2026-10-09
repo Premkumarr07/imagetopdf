@@ -48,7 +48,7 @@ private val bottomNavItems = listOf(
         icon = R.drawable.tools
     ),
     BottomNavItem(
-        label = "Profile",
+        label = "Settings",
         route = NavigationRoutes.Profile.route,
         icon = R.drawable.user
 

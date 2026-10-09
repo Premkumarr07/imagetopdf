@@ -1,15 +1,10 @@
 package com.example.imagetopdf.features.auth.ui
 
-import androidx.compose.animation.*
-import com.example.imagetopdf.R
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,98 +13,175 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
-//import com.example.imagetopdf.core.navigation.AppRoutes
-
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.imagetopdf.R
+import com.example.imagetopdf.constants.AppColors
 
 @Composable
-fun LoginScreenUI() {
-
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
+fun LoginScreen(
+    onLoginSuccess: (String) -> Unit,
+    viewModel: AuthViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val focusManager = LocalFocusManager.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(AppColors.LightBg)
             .padding(24.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
-
-        AppBanner()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(AppColors.DarkBlue, AppColors.AccentTeal)
+                    )
+                )
+                .padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(id = R.drawable.app_logo),
+                    contentDescription = "App Logo",
+                    modifier = Modifier
+                        .size(70.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(8.dp)
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(
+                        "ImageToPDF",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "PDF Toolkit",
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Convert • Compress • Sign",
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
 
         Spacer(Modifier.height(40.dp))
 
         Text(
             text = "Welcome Back",
             fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1E293B)
         )
 
         Text(
             text = "Login to continue",
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppColors.SlateGray
         )
 
         Spacer(Modifier.height(30.dp))
 
-        // 📧 EMAIL
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
+            value = uiState.email,
+            onValueChange = { viewModel.onEmailChange(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Email") },
             leadingIcon = { Icon(Icons.Outlined.Email, null) },
-            shape = RoundedCornerShape(12.dp)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AppColors.AccentTeal,
+                unfocusedBorderColor = AppColors.LightSlate
+            )
         )
 
         Spacer(Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = uiState.password,
+            onValueChange = { viewModel.onPasswordChange(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Password") },
             leadingIcon = { Icon(Icons.Outlined.Lock, null) },
-            trailingIcon = {
-//                IconButton { passwordVisible = !passwordVisible } {
-//                    Icon(
-//                        if (passwordVisible) Icons.Outlined.VisibilityOff
-//                        else Icons.Outlined.Visibility,
-//                        contentDescription = null
-//                    )
-//                }
-            },
-            visualTransformation = if (passwordVisible)
-                VisualTransformation.None else PasswordVisualTransformation(),
-            shape = RoundedCornerShape(12.dp)
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AppColors.AccentTeal,
+                unfocusedBorderColor = AppColors.LightSlate
+            )
         )
+
+        if (uiState.error != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = uiState.error!!,
+                color = AppColors.RedDelete,
+                fontSize = 13.sp
+            )
+        }
 
         Spacer(Modifier.height(24.dp))
 
         Button(
-            onClick = { },
+            onClick = {
+                focusManager.clearFocus()
+                viewModel.login(onLoginSuccess)
+            },
+            enabled = !uiState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = AppColors.DarkBlue)
         ) {
-            Text("Sign In")
+            if (uiState.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Signing in...", fontWeight = FontWeight.Bold)
+            } else {
+                Text("Sign In", fontWeight = FontWeight.Bold)
+            }
         }
 
         Spacer(Modifier.height(16.dp))
 
         OutlinedButton(
-            onClick = { },
+            onClick = { viewModel.loginWithGoogle(onLoginSuccess) },
+            enabled = !uiState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(14.dp)
         ) {
             Icon(Icons.Outlined.AccountCircle, null)
             Spacer(Modifier.width(8.dp))
@@ -120,7 +192,7 @@ fun LoginScreenUI() {
 
         Text(
             "Forgot Password?",
-            color = MaterialTheme.colorScheme.primary,
+            color = AppColors.DarkBlue,
             modifier = Modifier.clickable { }
         )
 
@@ -130,76 +202,13 @@ fun LoginScreenUI() {
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Don't have account? ")
+            Text("Don't have an account? ", color = AppColors.SlateGray)
             Text(
                 "Sign Up",
-                color = MaterialTheme.colorScheme.primary,
+                color = AppColors.DarkBlue,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable { }
             )
-        }
-    }
-}
-@Composable
-private fun AppBanner() {
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(140.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.tertiary
-                    )
-                )
-            )
-            .padding(16.dp)
-    ) {
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxSize()
-        ) {
-
-            // 🔷 LOGO ICON
-            Image(
-                painter = painterResource(id = R.drawable.app_logo),
-                contentDescription = "App Logo",
-                modifier = Modifier
-                    .size(70.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(8.dp)
-            )
-
-            Spacer(Modifier.width(16.dp))
-
-            // 🔷 TEXT
-            Column {
-                Text(
-                    "DOCU-CRAFT",
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    "PDF MASTER",
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                    fontSize = 14.sp
-                )
-
-                Spacer(Modifier.height(6.dp))
-
-                Text(
-                    "Scan • Convert • Compress",
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
-                    fontSize = 12.sp
-                )
-            }
         }
     }
 }

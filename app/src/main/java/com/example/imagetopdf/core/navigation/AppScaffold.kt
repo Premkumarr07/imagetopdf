@@ -6,13 +6,14 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.imagetopdf.navigation.NavigationRoutes
 import com.example.imagetopdf.navigation.bottomNavRoutes
 import com.example.imagetopdf.navigation.topBarRoutes
 
@@ -41,11 +42,18 @@ fun AppScaffold(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    if (currentRoute == NavigationRoutes.Auth.route) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            content()
+        }
+        return
+    }
+
     val showTopBar    = currentRoute in topBarRoutes
     val showBottomNav = currentRoute in bottomNavRoutes
 
     Scaffold(
-        containerColor = Color(0xFFF8FAFC),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AnimatedVisibility(
                 visible = showTopBar,

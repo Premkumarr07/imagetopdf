@@ -18,6 +18,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,9 +39,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.imagetopdf.R
 import com.example.imagetopdf.constants.AppColors
-import com.example.imagetopdf.core.utils.openPdf
 import com.example.imagetopdf.features.home.model.PdfFileModel
 import com.example.imagetopdf.features.myfiles.viewmodel.MyFilesViewModel
+import com.example.imagetopdf.navigation.NavigationRoutes
 
 
 enum class SortMode(val label: String) {
@@ -67,7 +70,14 @@ fun MyFilesScreen(
     val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) { viewModel.loadFiles() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadFiles()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     Box(modifier = Modifier.fillMaxSize()) {
 
         Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
@@ -87,16 +97,21 @@ fun MyFilesScreen(
                 isLoading -> ShimmerList()
                 files.isEmpty() && searchQuery.isNotEmpty() -> NoSearchResults(searchQuery)
                 files.isEmpty() -> EmptyFolderState()
-                else -> FileList(files = files, onDelete = { viewModel.deleteFile(it) })
+                else -> FileList(
+                    files = files,
+                    navController = navController,
+                    onDelete = { viewModel.deleteFile(it) }
+                )
             }
 
 
         }
         AddPdfFab(
-            onUploadClick = {
-                launcher.launch("application/pdf")
-            },
-            modifier = Modifier.align(Alignment.BottomEnd)
+            onUploadClick = { launcher.launch("application/pdf") },
+            onScanClick = { navController.navigate(NavigationRoutes.ScanDoc.route) },
+            onBlankClick = { viewModel.createBlankPdf() },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
                 .padding(16.dp)
         )
     }
@@ -210,6 +225,7 @@ private fun SortRow(fileCount: Int, sortMode: SortMode, onSort: (SortMode) -> Un
 @Composable
 private fun FileList(
     files: List<PdfFileModel>,
+    navController: NavController,
     onDelete: (PdfFileModel) -> Unit
 ) {
     LazyColumn(
@@ -219,6 +235,7 @@ private fun FileList(
         items(files, key = { it.path }) { file ->
             FileItem(
                 file = file,
+                navController = navController,
                 onDelete = { onDelete(file) }
             )
         }
@@ -226,14 +243,14 @@ private fun FileList(
 }
 
 @Composable
-private fun FileItem(file: PdfFileModel, onDelete: () -> Unit) {
+private fun FileItem(file: PdfFileModel, navController: NavController, onDelete: () -> Unit) {
     val context = LocalContext.current
 
     var showMenu by remember {
         mutableStateOf(false) }
     Card(modifier = Modifier.fillMaxWidth().
     clickable {
-        openPdf(file.path, context)
+        navController.navigate(NavigationRoutes.PdfViewer.open(file.path))
     }, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(AppColors.IndigoBg), contentAlignment = Alignment.Center) {
@@ -261,9 +278,33 @@ private fun FileItem(file: PdfFileModel, onDelete: () -> Unit) {
                     Icon(Icons.Default.MoreVert, "More", tint = Color(0xFF94A3B8), modifier = Modifier.size(20.dp))
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Open") },   onClick = { showMenu = false }, leadingIcon = { Icon(Icons.Outlined.Add, null) })
-                    DropdownMenuItem(text = { Text("Share") },  onClick = { showMenu = false }, leadingIcon = { Icon(Icons.Outlined.Share, null) })
-                    DropdownMenuItem(text = { Text("Rename") }, onClick = { showMenu = false }, leadingIcon = { Icon(Icons.Outlined.Edit, null) })
+                    DropdownMenuItem(
+                        text = { Text("Open") },
+                        onClick = {
+                            showMenu = false
+                            navController.navigate(NavigationRoutes.PdfViewer.open(file.path))
+                        },
+                        leadingIcon = { Icon(Icons.Outlined.Add, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Share") },
+                        onClick = {
+                            showMenu = false
+                            val uri = file.uri ?: return@DropdownMenuItem
+                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "application/pdf"
+                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(android.content.Intent.createChooser(intent, "Share PDF"))
+                        },
+                        leadingIcon = { Icon(Icons.Outlined.Share, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Rename") },
+                        onClick = { showMenu = false },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, null) }
+                    )
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text("Delete", color = AppColors.RedDelete) }, onClick = { showMenu = false; onDelete() }, leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = AppColors.RedDelete) })
                 }
@@ -335,8 +376,12 @@ private fun ShimmerItem() {
 
 
 @Composable
-fun AddPdfFab(  onUploadClick: () -> Unit,
-                modifier: Modifier = Modifier) {
+fun AddPdfFab(
+    onUploadClick: () -> Unit,
+    onScanClick: () -> Unit,
+    onBlankClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
@@ -363,7 +408,7 @@ fun AddPdfFab(  onUploadClick: () -> Unit,
                 )},
                 onClick = {
                     expanded = false
-                    // TODO: Open camera scanner
+                    onScanClick()
                 }
             )
 
@@ -373,7 +418,6 @@ fun AddPdfFab(  onUploadClick: () -> Unit,
                 onClick = {
                     expanded = false
                     onUploadClick()
-                    // TODO: Open file picker
                 }
 
             )
@@ -383,7 +427,7 @@ fun AddPdfFab(  onUploadClick: () -> Unit,
                 leadingIcon = { Icon(Icons.Outlined.Add, null) },
                 onClick = {
                     expanded = false
-                    //   TODO: Create new PDF
+                    onBlankClick()
                 }
             )
         }

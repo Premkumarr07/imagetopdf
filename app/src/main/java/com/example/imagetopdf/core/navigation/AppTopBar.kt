@@ -20,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.Navigation
 import com.example.imagetopdf.navigation.NavigationRoutes
 
 private val TopBarDarkBlue = Color(0xFF1E3A8A)
@@ -46,8 +45,8 @@ fun AppTopBar(
     currentRoute: String?,
     navController: NavController,
     onSettingsClick: () -> Unit = { navController.navigate(NavigationRoutes.Profile.route) },
-    onSearchClick: () -> Unit = {},
-    onNotificationClick: () -> Unit = {}
+    onSearchClick: () -> Unit = { navController.navigate(NavigationRoutes.MyFiles.route) },
+    onNotificationClick: () -> Unit = { navController.navigate(NavigationRoutes.Profile.route) }
 ) {
     val isHome = currentRoute == NavigationRoutes.Home.route
     val isMainRoute = currentRoute in listOf(
@@ -62,7 +61,7 @@ fun AppTopBar(
         NavigationRoutes.Home.route      -> "My Documents"
         NavigationRoutes.MyFiles.route   -> "My Files"
         NavigationRoutes.Tools.route     -> "Tools"
-        NavigationRoutes.Profile.route   -> "Profile"
+        NavigationRoutes.Profile.route   -> "Settings"
         NavigationRoutes.ImageToPdf.route -> "Images → PDF"
         NavigationRoutes.ScanDoc.route   -> "Scan Document"
         NavigationRoutes.Compress.route  -> "Compress PDF"
@@ -70,7 +69,14 @@ fun AppTopBar(
         NavigationRoutes.MergePdf.route  -> "Merge PDFs"
         NavigationRoutes.PdfEditor.route -> "PDF Editor"
         NavigationRoutes.Templates.route -> "Templates"
-        else                             -> "My Documents"
+        NavigationRoutes.SplitPdf.route -> "Split PDF"
+        NavigationRoutes.RearrangePdf.route -> "Rearrange PDF"
+        NavigationRoutes.PdfToJpg.route -> "PDF → JPG"
+        NavigationRoutes.PdfToWord.route -> "PDF → Word"
+        NavigationRoutes.PdfViewer.route -> "View PDF"
+        NavigationRoutes.HighlightPdf.route -> "Highlight PDF"
+        NavigationRoutes.EsignPdf.route -> "eSign PDF"
+        else -> "My Documents"
     }
 
     Box(

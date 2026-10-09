@@ -45,6 +45,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.imagetopdf.R
+import com.example.imagetopdf.navigation.NavigationRoutes
 import com.example.imagetopdf.constants.AppColors
 import com.example.imagetopdf.features.image_to_pdf.ui.components.ConversionProgress
 import com.example.imagetopdf.features.image_to_pdf.ui.components.ConversionSuccess
@@ -91,7 +92,7 @@ suspend fun convertImagesToPdf(
     pdfName:   String,
     pageSize:  String,
     quality:   String
-): Uri? = withContext(Dispatchers.IO) {
+): com.example.imagetopdf.core.utils.PdfSaveHelper.SaveResult? = withContext(Dispatchers.IO) {
     val jpegQuality = QUALITY_MAP[quality] ?: 95
     val pdfDocument = PdfDocument()
 
@@ -146,37 +147,8 @@ suspend fun convertImagesToPdf(
             pdfDocument.finishPage(page)
         }
 
-        // 5. Write to cache file first
-        val cacheFile = File(context.cacheDir, "$pdfName.pdf")
-        FileOutputStream(cacheFile).use { pdfDocument.writeTo(it) }
-
-        // 6. Save to Downloads (works on Android Q+ and legacy)
-        val savedUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, "$pdfName.pdf")
-                put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val resolver = context.contentResolver
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            uri?.let {
-                resolver.openOutputStream(it)?.use { out -> cacheFile.inputStream().copyTo(out) }
-                values.clear()
-                values.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(it, values, null, null)
-            }
-            uri
-        } else {
-            @Suppress("DEPRECATION")
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            downloadsDir.mkdirs()
-            val destFile = File(downloadsDir, "$pdfName.pdf")
-            cacheFile.copyTo(destFile, overwrite = true)
-            FileProvider.getUriForFile(context, "${context.packageName}.provider", destFile)
-        }
-
-        return@withContext savedUri
+        val bytes = java.io.ByteArrayOutputStream().also { pdfDocument.writeTo(it) }.toByteArray()
+        return@withContext com.example.imagetopdf.core.utils.PdfSaveHelper.savePdfBytes(context, bytes, pdfName)
 
     } catch (e: Exception) {
         e.printStackTrace()
@@ -196,9 +168,14 @@ fun ImageToPdfScreen(navController: NavController) {
     var progress      by remember { mutableStateOf(0f) }
     var pdfName       by remember { mutableStateOf("document_${System.currentTimeMillis()}") }
     var savedPdfUri   by remember { mutableStateOf<Uri?>(null) }
+    var savedPdfPath  by remember { mutableStateOf<String?>(null) }
     var errorMessage  by remember { mutableStateOf("") }
     var selectedSize  by remember { mutableStateOf("A4") }
     var selectedQuality by remember { mutableStateOf("High") }
+
+    LaunchedEffect(Unit) {
+        selectedQuality = com.example.imagetopdf.core.preferences.UserPreferences.qualityLabel(context)
+    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -223,7 +200,7 @@ fun ImageToPdfScreen(navController: NavController) {
                 }
             }
 
-            val resultUri = convertImagesToPdf(
+            val result = convertImagesToPdf(
                 context  = context,
                 uris     = selectedUris,
                 pdfName  = pdfName.ifBlank { "document" },
@@ -234,8 +211,9 @@ fun ImageToPdfScreen(navController: NavController) {
             progressJob.cancel()
             progress = 1f
 
-            if (resultUri != null) {
-                savedPdfUri  = resultUri
+            if (result != null) {
+                savedPdfUri  = result.shareUri
+                savedPdfPath = result.file.absolutePath
                 convertState = ConvertState.DONE
             } else {
                 errorMessage = "Conversion failed. Please try again."
@@ -283,7 +261,23 @@ fun ImageToPdfScreen(navController: NavController) {
                             savedPdfUri  = null
                         }
                     },
-                    onAddMore = { launcher.launch("image/*") }
+                    onAddMore = { launcher.launch("image/*") },
+                    onMoveUp = { index ->
+                        if (index > 0) {
+                            selectedUris = selectedUris.toMutableList().apply {
+                                val item = removeAt(index)
+                                add(index - 1, item)
+                            }
+                        }
+                    },
+                    onMoveDown = { index ->
+                        if (index < selectedUris.size - 1) {
+                            selectedUris = selectedUris.toMutableList().apply {
+                                val item = removeAt(index)
+                                add(index + 1, item)
+                            }
+                        }
+                    }
                 )
             }
 
@@ -355,14 +349,8 @@ fun ImageToPdfScreen(navController: NavController) {
                     ConvertState.DONE -> ConversionSuccess(
                         pdfName    = pdfName.ifBlank { "document" },
                         onDownload = {
-                            // PDF is already saved in Downloads — open it so user sees it
-                            savedPdfUri?.let { uri ->
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, "application/pdf")
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(Intent.createChooser(intent, "Open PDF"))
+                            savedPdfPath?.let { path ->
+                                navController.navigate(NavigationRoutes.PdfViewer.open(path))
                             }
                         },
                         onShare = {

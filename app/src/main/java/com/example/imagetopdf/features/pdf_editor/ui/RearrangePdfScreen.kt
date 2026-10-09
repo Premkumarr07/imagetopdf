@@ -1,17 +1,10 @@
 package com.example.imagetopdf.features.pdf_editor.ui
 
-import android.graphics.Bitmap
-import android.graphics.Color as AndroidColor
-import androidx.compose.ui.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
-import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,11 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import com.example.imagetopdf.features.image_to_pdf.ui.components.EmptyPickerCard
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,19 +37,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
 
-private enum class EditorState { IDLE, SAVING, DONE, ERROR }
-
-data class PageAnnotation(
-    val pageIndex: Int,
-    val text: String,
-    val x: Float,
-    val y: Float
-)
+private enum class RearrangeState { IDLE, SAVING, DONE, ERROR }
 
 @Composable
-fun PdfEditorScreen(navController: NavController) {
+fun RearrangePdfScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -67,13 +51,9 @@ fun PdfEditorScreen(navController: NavController) {
     var fileSize by remember { mutableStateOf("") }
     var pageCount by remember { mutableIntStateOf(0) }
     var pageOrder by remember { mutableStateOf<List<Int>>(emptyList()) }
-    var annotations by remember { mutableStateOf<List<PageAnnotation>>(emptyList()) }
-    var editorState by remember { mutableStateOf(EditorState.IDLE) }
-    var outputName by remember { mutableStateOf("edited_document") }
+    var rearrangeState by remember { mutableStateOf(RearrangeState.IDLE) }
+    var outputName by remember { mutableStateOf("rearranged_document") }
     var errorMessage by remember { mutableStateOf("") }
-    var showAddTextDialog by remember { mutableStateOf(false) }
-    var annotationText by remember { mutableStateOf("") }
-    var selectedPageForAnnotation by remember { mutableIntStateOf(0) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -87,8 +67,7 @@ fun PdfEditorScreen(navController: NavController) {
             val count = file?.let { PdfMerge.getPageCount(it) } ?: 0
             pageCount = count
             pageOrder = (0 until count).toList()
-            annotations = emptyList()
-            editorState = EditorState.IDLE
+            rearrangeState = RearrangeState.IDLE
         }
     }
 
@@ -106,13 +85,13 @@ fun PdfEditorScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "PDF Editor",
+                text = "Rearrange PDF",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1E293B)
             )
             Text(
-                text = "Reorder, delete pages and add text annotations",
+                text = "Change the order of pages in your PDF",
                 fontSize = 13.sp,
                 color = AppColors.SlateGray
             )
@@ -120,7 +99,40 @@ fun PdfEditorScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(20.dp))
 
             if (selectedUri == null) {
-                EmptyPickerCard(onClick = { launcher.launch("application/pdf") })
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clickable { launcher.launch("application/pdf") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    elevation = CardDefaults.cardElevation(0.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(AppColors.DarkBlue.copy(alpha = 0.05f))
+                            .clickable { launcher.launch("application/pdf") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Outlined.SwapVert,
+                                contentDescription = null,
+                                tint = AppColors.DarkBlue,
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "Select PDF to rearrange",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AppColors.DarkBlue
+                            )
+                        }
+                    }
+                }
             } else {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -138,14 +150,14 @@ fun PdfEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(AppColors.PurpleBg),
+                                .background(AppColors.AmberBg),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 painter = painterResource(id = R.drawable.pdf),
                                 contentDescription = null,
                                 modifier = Modifier.size(24.dp),
-                                tint = AppColors.Purple
+                                tint = AppColors.Amber
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
@@ -170,8 +182,7 @@ fun PdfEditorScreen(navController: NavController) {
                             fileSize = ""
                             pageCount = 0
                             pageOrder = emptyList()
-                            annotations = emptyList()
-                            editorState = EditorState.IDLE
+                            rearrangeState = RearrangeState.IDLE
                         }) {
                             Icon(
                                 Icons.Outlined.Close,
@@ -184,23 +195,17 @@ fun PdfEditorScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Pages",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Text(
-                        text = "${pageOrder.size} of $pageCount",
-                        fontSize = 12.sp,
-                        color = AppColors.SlateGray
-                    )
-                }
+                Text(
+                    text = "Page order",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E293B)
+                )
+                Text(
+                    text = "Use arrows to reorder pages",
+                    fontSize = 12.sp,
+                    color = AppColors.SlateGray
+                )
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -208,7 +213,7 @@ fun PdfEditorScreen(navController: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     itemsIndexed(pageOrder) { index, originalIndex ->
-                        PageThumbnailCard(
+                        RearrangePageCard(
                             file = selectedFile,
                             pageIndex = originalIndex,
                             displayIndex = index,
@@ -227,75 +232,8 @@ fun PdfEditorScreen(navController: NavController) {
                                         add(index + 1, item)
                                     }
                                 }
-                            },
-                            onDelete = {
-                                pageOrder = pageOrder.filterIndexed { i, _ -> i != index }
-                            },
-                            onAddText = {
-                                selectedPageForAnnotation = originalIndex
-                                showAddTextDialog = true
                             }
                         )
-                    }
-                }
-
-                if (annotations.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Text(
-                        text = "Text Annotations",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    annotations.forEach { ann ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(containerColor = AppColors.CardWhite),
-                            elevation = CardDefaults.cardElevation(1.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Outlined.TextFields,
-                                    contentDescription = null,
-                                    tint = AppColors.Purple,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = ann.text,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF1E293B),
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = "Page ${ann.pageIndex + 1}",
-                                        fontSize = 11.sp,
-                                        color = AppColors.SlateGray
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    annotations = annotations.filter { it != ann }
-                                }) {
-                                    Icon(
-                                        Icons.Outlined.Delete,
-                                        contentDescription = "Remove",
-                                        tint = AppColors.RedDelete,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -330,7 +268,7 @@ fun PdfEditorScreen(navController: NavController) {
                     )
                 )
 
-                if (editorState == EditorState.SAVING) {
+                if (rearrangeState == RearrangeState.SAVING) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -358,7 +296,7 @@ fun PdfEditorScreen(navController: NavController) {
                     }
                 }
 
-                if (editorState == EditorState.DONE) {
+                if (rearrangeState == RearrangeState.DONE) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -384,46 +322,27 @@ fun PdfEditorScreen(navController: NavController) {
                                 color = AppColors.TealGreen
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            Button(
+                                onClick = {
+                                    selectedUri = null
+                                    selectedFile = null
+                                    fileName = ""
+                                    fileSize = ""
+                                    pageCount = 0
+                                    pageOrder = emptyList()
+                                    rearrangeState = RearrangeState.IDLE
+                                    outputName = "rearranged_document"
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AppColors.DarkBlue)
                             ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        selectedUri?.let { uri ->
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                                setDataAndType(uri, "application/pdf")
-                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(android.content.Intent.createChooser(intent, "Open PDF"))
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text("Open")
-                                }
-                                Button(
-                                    onClick = {
-                                        selectedUri = null
-                                        selectedFile = null
-                                        fileName = ""
-                                        fileSize = ""
-                                        pageCount = 0
-                                        pageOrder = emptyList()
-                                        annotations = emptyList()
-                                        editorState = EditorState.IDLE
-                                        outputName = "edited_document"
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.DarkBlue)
-                                ) {
-                                    Text("Edit Another")
-                                }
+                                Text("Rearrange Another")
                             }
                         }
                     }
                 }
 
-                if (editorState == EditorState.ERROR) {
+                if (rearrangeState == RearrangeState.ERROR) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -484,79 +403,62 @@ fun PdfEditorScreen(navController: NavController) {
 
                 Button(
                     onClick = {
-                        if (editorState == EditorState.DONE || editorState == EditorState.ERROR) {
+                        if (rearrangeState == RearrangeState.DONE || rearrangeState == RearrangeState.ERROR) {
                             selectedUri = null
                             selectedFile = null
                             fileName = ""
                             fileSize = ""
                             pageCount = 0
                             pageOrder = emptyList()
-                            annotations = emptyList()
-                            editorState = EditorState.IDLE
-                            outputName = "edited_document"
+                            rearrangeState = RearrangeState.IDLE
+                            outputName = "rearranged_document"
                         } else {
                             selectedFile?.let { file ->
-                                if (pageOrder.isEmpty()) {
-                                    errorMessage = "No pages remaining. Add at least one page."
-                                    editorState = EditorState.ERROR
-                                    return@Button
-                                }
-                                editorState = EditorState.SAVING
+                                rearrangeState = RearrangeState.SAVING
                                 scope.launch {
                                     val result = withContext(Dispatchers.IO) {
                                         try {
-                                            val tempFile = File(context.cacheDir, "temp_edit_${System.currentTimeMillis()}.pdf")
-                                            val reorderSuccess = PdfMerge.extractPages(context, file, tempFile, pageOrder)
-                                            if (!reorderSuccess) return@withContext null
-
-                                            val finalFile = if (annotations.isEmpty()) {
-                                                tempFile
-                                            } else {
-                                                applyAnnotations(context, tempFile, annotations, File(context.cacheDir, "final_${System.currentTimeMillis()}.pdf"))
-                                            }
-
-                                            val outputFile = File(context.cacheDir, "${outputName.ifBlank { "edited" }}.pdf")
-                                            finalFile.copyTo(outputFile, overwrite = true)
-                                            tempFile.delete()
-                                            if (finalFile != outputFile) finalFile.delete()
-
-                                            FileProvider.getUriForFile(
-                                                context,
-                                                "${context.packageName}.provider",
-                                                outputFile
-                                            )
+                                            val outputFile = File(context.cacheDir, "${outputName.ifBlank { "rearranged" }}.pdf")
+                                            val success = PdfMerge.extractPages(context, file, outputFile, pageOrder)
+                                            if (success) {
+                                                FileProvider.getUriForFile(
+                                                    context,
+                                                    "${context.packageName}.provider",
+                                                    outputFile
+                                                )
+                                            } else null
                                         } catch (e: Exception) {
                                             null
                                         }
                                     }
                                     if (result != null) {
-                                        editorState = EditorState.DONE
+                                        rearrangeState = RearrangeState.DONE
                                     } else {
                                         errorMessage = "Failed to save PDF. Please try again."
-                                        editorState = EditorState.ERROR
+                                        rearrangeState = RearrangeState.ERROR
                                     }
                                 }
                             }
                         }
                     },
-                    enabled = selectedUri != null && pageOrder.isNotEmpty() && editorState != EditorState.SAVING,
+                    enabled = selectedUri != null && pageOrder.isNotEmpty() && rearrangeState != RearrangeState.SAVING,
                     modifier = Modifier
                         .weight(2f)
                         .height(52.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (editorState == EditorState.DONE) AppColors.SuccessGreen else AppColors.DarkBlue,
+                        containerColor = if (rearrangeState == RearrangeState.DONE) AppColors.SuccessGreen else AppColors.DarkBlue,
                         disabledContainerColor = AppColors.LightSlate
                     )
                 ) {
-                    if (editorState == EditorState.DONE) {
+                    if (rearrangeState == RearrangeState.DONE) {
                         Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Edit Again", fontWeight = FontWeight.Bold)
+                        Text("Rearrange Again", fontWeight = FontWeight.Bold)
                     } else {
                         Icon(
-                            painter = painterResource(id = R.drawable.edit),
-                            contentDescription = "Save",
+                            Icons.Outlined.SwapVert,
+                            contentDescription = "Rearrange",
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -566,68 +468,18 @@ fun PdfEditorScreen(navController: NavController) {
             }
         }
     }
-
-    if (showAddTextDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddTextDialog = false },
-            title = { Text("Add Text Annotation") },
-            text = {
-                Column {
-                    Text("Page ${selectedPageForAnnotation + 1}", fontSize = 13.sp, color = AppColors.SlateGray)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = annotationText,
-                        onValueChange = { annotationText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Enter text to add") },
-                        singleLine = false,
-                        maxLines = 3
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (annotationText.isNotBlank()) {
-                            annotations = annotations + PageAnnotation(
-                                pageIndex = selectedPageForAnnotation,
-                                text = annotationText.trim(),
-                                x = 50f,
-                                y = 100f
-                            )
-                            annotationText = ""
-                            showAddTextDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.DarkBlue)
-                ) {
-                    Text("Add")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    annotationText = ""
-                    showAddTextDialog = false
-                }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
 @Composable
-private fun PageThumbnailCard(
+private fun RearrangePageCard(
     file: File?,
     pageIndex: Int,
     displayIndex: Int,
     onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-    onDelete: () -> Unit,
-    onAddText: () -> Unit
+    onMoveDown: () -> Unit
 ) {
     val context = LocalContext.current
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var bitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     LaunchedEffect(file, pageIndex) {
         bitmap = withContext(Dispatchers.IO) {
@@ -636,7 +488,7 @@ private fun PageThumbnailCard(
     }
 
     Card(
-        modifier = Modifier.width(120.dp),
+        modifier = Modifier.width(100.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = AppColors.CardWhite),
         elevation = CardDefaults.cardElevation(2.dp)
@@ -648,7 +500,7 @@ private fun PageThumbnailCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(140.dp)
+                    .height(120.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(AppColors.LightBg),
                 contentAlignment = Alignment.Center
@@ -668,25 +520,22 @@ private fun PageThumbnailCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Page ${displayIndex + 1}",
+                text = "${displayIndex + 1}",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF1E293B)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
             Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 IconButton(
                     onClick = onMoveUp,
                     enabled = displayIndex > 0,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
                         Icons.Outlined.ArrowUpward,
@@ -697,7 +546,7 @@ private fun PageThumbnailCard(
                 }
                 IconButton(
                     onClick = onMoveDown,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
                         Icons.Outlined.ArrowDownward,
@@ -706,80 +555,8 @@ private fun PageThumbnailCard(
                         tint = AppColors.SlateGray
                     )
                 }
-                IconButton(
-                    onClick = onAddText,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.TextFields,
-                        contentDescription = "Add text",
-                        modifier = Modifier.size(14.dp),
-                        tint = AppColors.Purple
-                    )
-                }
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = "Delete",
-                        modifier = Modifier.size(14.dp),
-                        tint = AppColors.RedDelete
-                    )
-                }
             }
         }
-    }
-}
-
-private fun applyAnnotations(
-    context: android.content.Context,
-    inputFile: File,
-    annotations: List<PageAnnotation>,
-    outputFile: File
-): File {
-    val document = PdfDocument()
-    try {
-        val fd = android.os.ParcelFileDescriptor.open(inputFile, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
-        val renderer = android.graphics.pdf.PdfRenderer(fd)
-
-        for (i in 0 until renderer.pageCount) {
-            val page = renderer.openPage(i)
-            val pageInfo = PdfDocument.PageInfo.Builder(page.width, page.height, i + 1).create()
-            val pdfPage = document.startPage(pageInfo)
-            val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
-            bitmap.eraseColor(AndroidColor.WHITE)
-            page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-
-            val canvas = pdfPage.canvas
-            canvas.drawBitmap(bitmap, 0f, 0f, null)
-
-            val pageAnnotations = annotations.filter { it.pageIndex == i }
-            for (ann in pageAnnotations) {
-                val paint = Paint().apply {
-                    color = AndroidColor.BLACK
-                    textSize = 24f
-                    typeface = Typeface.DEFAULT_BOLD
-                    isAntiAlias = true
-                }
-                canvas.drawText(ann.text, ann.x, ann.y, paint)
-            }
-
-            bitmap.recycle()
-            document.finishPage(pdfPage)
-            page.close()
-        }
-
-        renderer.close()
-        fd.close()
-        FileOutputStream(outputFile).use { document.writeTo(it) }
-        return outputFile
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return inputFile
-    } finally {
-        document.close()
     }
 }
 

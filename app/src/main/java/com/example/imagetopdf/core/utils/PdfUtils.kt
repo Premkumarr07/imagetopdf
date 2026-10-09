@@ -13,7 +13,7 @@ fun openPdf(path: String, context: Context) {
         "${context.packageName}.provider",
         file
     )
-3
+
     val intent = Intent(Intent.ACTION_VIEW).apply {
         setDataAndType(uri, "application/pdf")
         flags = Intent.FLAG_GRANT_READ_URI_PERMISSION

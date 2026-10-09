@@ -1,6 +1,8 @@
 package com.example.imagetopdf.features.myfiles.viewmodel
 
 import android.content.Context
+import android.graphics.Color
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
 
@@ -100,6 +103,22 @@ class MyFilesViewModel @Inject constructor(
     fun deleteFile(file: PdfFileModel) {
         viewModelScope.launch(Dispatchers.IO) {
             pdfFileRepository.deleteFile(file.path)
+            loadFiles()
+        }
+    }
+
+    fun createBlankPdf() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val document = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+            val page = document.startPage(pageInfo)
+            page.canvas.drawColor(Color.WHITE)
+            document.finishPage(page)
+            val stream = ByteArrayOutputStream()
+            document.writeTo(stream)
+            document.close()
+            val bytes = stream.toByteArray()
+            pdfFileRepository.savePdfToAppFolder(bytes, "Blank_${System.currentTimeMillis()}")
             loadFiles()
         }
     }

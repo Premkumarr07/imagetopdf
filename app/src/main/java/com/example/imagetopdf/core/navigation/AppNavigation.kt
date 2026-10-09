@@ -2,42 +2,52 @@ package com.example.imagetopdf.core.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.example.imagetopdf.MainActivity
+import com.example.imagetopdf.core.preferences.UserPreferences
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.example.imagetopdf.features.auth.ui.LoginScreen
 import com.example.imagetopdf.features.home.ui.HomeScreen
 import com.example.imagetopdf.features.image_to_pdf.ui.ImageToPdfScreen
 import com.example.imagetopdf.features.myfiles.ui.MyFilesScreen
-import com.example.imagetopdf.features.pdf_editor.ui.CompressScreen
-import com.example.imagetopdf.features.pdf_editor.ui.EncryptScreen
-import com.example.imagetopdf.features.pdf_editor.ui.MergePdfScreen
-import com.example.imagetopdf.features.pdf_editor.ui.PdfEditorScreen
-import com.example.imagetopdf.features.pdf_editor.ui.ScanDocScreen
+import com.example.imagetopdf.features.pdf_editor.ui.*
 import com.example.imagetopdf.features.profile.ui.ProfileScreen
 import com.example.imagetopdf.features.templates.ui.TemplatesScreen
 import com.example.imagetopdf.features.tools.ui.ToolsScreen
 import com.example.imagetopdf.navigation.NavigationRoutes
 
-/**
- * Central NavHost that maps every [NavigationRoutes] to its screen composable.
- *
- * Add new routes here as features grow. The scaffold (top bar + bottom nav)
- * is handled by [AppScaffold] — screens themselves stay clean.
- *
- * @param navController The app-level [NavHostController].
- * @param modifier      Optional modifier forwarded to [NavHost].
- */
 @Composable
 fun AppNavigation(
     navController: NavHostController,
+    startDestination: String = NavigationRoutes.Home.route,
+    onSettingsChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     NavHost(
-        navController    = navController,
-        startDestination = NavigationRoutes.Home.route,
-        modifier         = modifier
+        navController = navController,
+        startDestination = startDestination,
+        modifier = modifier
     ) {
-        // ── Main tabs ────────────────────────────────────────────────────────
+        composable(NavigationRoutes.Auth.route) {
+            val context = LocalContext.current
+            LoginScreen(
+                onLoginSuccess = { signedInEmail ->
+                    UserPreferences.setEmailFromLogin(context, signedInEmail)
+                    context.getSharedPreferences(MainActivity.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(MainActivity.KEY_LOGGED_IN, true)
+                        .apply()
+                    navController.navigate(NavigationRoutes.Home.route) {
+                        popUpTo(NavigationRoutes.Auth.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(NavigationRoutes.Home.route) {
             HomeScreen(navController = navController)
         }
@@ -51,10 +61,12 @@ fun AppNavigation(
         }
 
         composable(NavigationRoutes.Profile.route) {
-            ProfileScreen(navController = navController)
+            ProfileScreen(
+                navController = navController,
+                onSettingsChanged = onSettingsChanged
+            )
         }
 
-        // ── Feature screens ──────────────────────────────────────────────────
         composable(NavigationRoutes.ImageToPdf.route) {
             ImageToPdfScreen(navController = navController)
         }
@@ -81,6 +93,43 @@ fun AppNavigation(
 
         composable(NavigationRoutes.Templates.route) {
             TemplatesScreen(navController = navController)
+        }
+
+        composable(NavigationRoutes.SplitPdf.route) {
+            SplitPdfScreen(navController = navController)
+        }
+
+        composable(NavigationRoutes.RearrangePdf.route) {
+            RearrangePdfScreen(navController = navController)
+        }
+
+        composable(NavigationRoutes.PdfToJpg.route) {
+            PdfToJpgScreen(navController = navController)
+        }
+
+        composable(NavigationRoutes.PdfToWord.route) {
+            PdfToWordScreen(navController = navController)
+        }
+
+        composable(
+            route = NavigationRoutes.PdfViewer.route,
+            arguments = listOf(
+                navArgument("pdfPath") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { entry ->
+            val path = entry.arguments?.getString("pdfPath")?.takeIf { it.isNotEmpty() }
+            PdfViewerScreen(navController = navController, initialPath = path)
+        }
+
+        composable(NavigationRoutes.HighlightPdf.route) {
+            HighlightPdfScreen(navController = navController)
+        }
+
+        composable(NavigationRoutes.EsignPdf.route) {
+            EsignPdfScreen(navController = navController)
         }
     }
 }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -55,15 +56,13 @@ class HomeViewModel @Inject constructor(
     }
 
     fun shareFile(file: PdfFileModel) {
-        file.uri?.let { uri ->
-            pdfFileRepository.sharePdf(uri)
-        }
+        val uri = file.uri ?: pdfFileRepository.getFileUri(File(file.path))
+        pdfFileRepository.sharePdf(uri)
     }
 
     fun openFile(file: PdfFileModel) {
-        file.uri?.let { uri ->
-            pdfFileRepository.openPdf(uri)
-        }
+        val uri = file.uri ?: pdfFileRepository.getFileUri(File(file.path))
+        pdfFileRepository.openPdf(uri)
     }
 
     fun dismissError() {

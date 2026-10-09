@@ -1,4 +1,3 @@
-// features/image_to_pdf/ui/components/ImageThumbnailStrip.kt
 package com.example.imagetopdf.features.image_to_pdf.ui.components
 
 import android.net.Uri
@@ -11,8 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +32,9 @@ import com.example.imagetopdf.constants.AppColors
 fun ImageThumbnailStrip(
     uris: List<Uri>,
     onRemove: (Uri) -> Unit,
-    onAddMore: () -> Unit
+    onAddMore: () -> Unit,
+    onMoveUp: ((Int) -> Unit)? = null,
+    onMoveDown: ((Int) -> Unit)? = null
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -73,6 +73,35 @@ fun ImageThumbnailStrip(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Outlined.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
+                }
+                if (onMoveUp != null && onMoveDown != null) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(if (index > 0) AppColors.DarkBlue.copy(alpha = .75f) else Color.Gray.copy(alpha = .4f))
+                                .clickable(enabled = index > 0) { onMoveUp(index) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up", tint = Color.White, modifier = Modifier.size(12.dp))
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(if (index < uris.size - 1) AppColors.DarkBlue.copy(alpha = .75f) else Color.Gray.copy(alpha = .4f))
+                                .clickable(enabled = index < uris.size - 1) { onMoveDown(index) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down", tint = Color.White, modifier = Modifier.size(12.dp))
+                        }
+                    }
                 }
             }
         }
