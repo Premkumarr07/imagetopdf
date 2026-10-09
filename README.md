@@ -64,6 +64,6 @@ ImageToPDF is built for personal use. Don’t put sensitive information in the a
 
 ## License
 
-Copyright 2026 Bhuvan Prakash. Licensed under the [Apache License, Version 2.0](LICENSE).
+Licensed under the [Apache License, Version 2.0](LICENSE).
 
 Questions or feedback? Open an issue on the project page.
